@@ -1,0 +1,200 @@
+<html>
+    <head>
+        <style>
+            body {
+                color: #555;
+                font-family: Inter, sans-serif;
+            }
+            header h2 {
+                margin: 80px 0;
+            }
+            .main {
+                margin: 20px auto;
+                width: 900px;
+            }
+            .disconnected {
+                background: #eee;
+            }
+            .device-list {
+                display: flex;
+                flex-wrap: wrap;
+                margin: 10px -10px;
+                padding: 0;
+            }
+            .device-list li {
+                height: 110px;
+                width: 140px;
+                border-radius: 10px;
+                border: 3px solid #ddd;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                cursor: pointer;
+                text-align: center;
+                margin: 10px;
+                position: relative;
+            }
+            .device-list li.active {
+                border: 3px solid #77a7e9;
+            }
+            .device-list li.offline {
+                border: 3px solid #eee;
+                color: #ddd;
+            }
+            .device-list li .stat {
+                margin: 8px 0 0 0;
+                font-size: 13px;
+                color: #aaa;
+            }
+
+            @keyframes spinner {
+                to {
+                    transform: rotate(360deg);
+                }
+            }
+
+            .spinner:before {
+                content: "";
+                box-sizing: border-box;
+                position: absolute;
+                top: 90px;
+                left: 50%;
+                width: 20px;
+                height: 20px;
+                margin-top: -10px;
+                margin-left: -10px;
+                border-radius: 50%;
+                border: 2px solid #ccc;
+                border-top-color: #000;
+                animation: spinner 0.6s linear infinite;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="main">
+            <header>
+                <h2>Command Center for Thompson Creek Yacht Club</h2>
+            </header>
+            <div id="app"></div>
+        </div>
+        <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+        <script src="https://unpkg.com/react@16/umd/react.development.js" crossorigin></script>
+        <script src="https://unpkg.com/react-dom@16/umd/react-dom.development.js" crossorigin></script>
+        <script type="text/babel">
+            let ws;
+            let devices = [];
+            let interval;
+            connect();
+            function connect() {
+                ws = new WebSocket("ws://" + location.host);
+                ws.onmessage = e => {
+                    let obj;
+                    try {
+                        obj = JSON.parse(e.data);
+                        console.log(obj);
+                        if (obj.name === "connected" || obj.name === "update") {
+                            devices = reconcile(obj.data);
+                            console.log(devices);
+                            render({devices});
+                            if (interval) clearInterval(interval);
+                        }
+                    } catch (e) {
+                        console.error("Couldn't parse data: " + e);
+                    }
+                };
+                ws.onclose = e => {
+                    render({devices, disconnected: true});
+                    if (!interval) pollForWebsocket();
+                };
+            }
+
+            function reconcile(data) {
+                // If we have cached data, don't clear the list when the server reconnects.
+                if (!data.length) {
+                    return devices;
+                }
+
+                data.forEach(device => {
+                    const cached = devices.find(d => device.id === d.id);
+
+                    // Pending will remain pending until the state changes
+                    // TODO: validate state change better
+                    if (cached && cached.pending && device.settings.power == cached.settings.power) {
+                        device.pending = cached.pending;
+                    }
+                });
+
+                return data;
+            }
+
+            function pollForWebsocket() {
+                interval = setInterval(connect, 1000);
+            }
+
+            let sort = "";
+
+            var App = ({lights = [], other = [], thermostats = [], disconnected = false}) => {
+                return (
+                    <div className={disconnected ? "disconnected" : ""}>
+                        <h3>Lights</h3>
+                        <ul className="device-list lights">
+                            {lights.map(d => (
+                                <li onClick={() => handleClick(d)} key={d.id} className={getClasses(d)}>
+                                    {d.name}
+                                </li>
+                            ))}
+                        </ul>
+                        <h3>Devices</h3>
+                        <ul className="device-list devices">
+                            {other.map(d => (
+                                <li onClick={() => handleClick(d)} key={d.id} className={getClasses(d)}>
+                                    {d.name}
+                                </li>
+                            ))}
+                        </ul>
+                        <h3>Thermostats</h3>
+                        <ul className="device-list thermostats">
+                            {thermostats.map(d => (
+                                <li key={d.id} onClick={() => handleClick(d)} className={getClasses(d)}>
+                                    <div className="name">{d.name}</div>
+                                    {d.values.temperature ? <div className="stat">{d.values.temperature}°F</div> : null}
+                                    {d.values.humidity ? (
+                                        <div className="stat">{d.values.humidity}% humidity</div>
+                                    ) : null}
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                );
+            };
+
+            function handleClick(device) {
+                const str = JSON.stringify({name: "toggle", data: device.id});
+                ws.send(str);
+
+                devices[devices.indexOf(device)].pending = true;
+                render({devices});
+            }
+
+            function getClasses(d) {
+                return `${d.settings.power === true ? "active" : ""} ${d.values.online === true ? "" : "offline"} ${
+                    d.pending === true ? "spinner" : ""
+                }`;
+            }
+
+            function log(d) {
+                console.log(d);
+                return d;
+            }
+
+            function render(props) {
+                const disconnected = props.disconnected;
+                const thermostats = props.devices.filter(d => d.values.temperature || d.settings.temperature);
+                const lights = props.devices.filter(d => d.model === "KS-S");
+                const other = props.devices.filter(d => d.model !== "KS-S" && !d.settings.temperature);
+                ReactDOM.render(App({thermostats, lights, other, disconnected}), document.getElementById("app"));
+            }
+        </script>
+    </body>
+</html>
