@@ -1,0 +1,14 @@
+module.exports = {
+    ewelink: {
+        email: "email@example.com",
+        password: "password",
+        region: "us",
+        APP_ID: "APP_ID_GOES_HERE",
+        APP_SECRET: "APP_SECRET_GOES_HERE",
+    },
+    smartcielo: {
+        username: "email@example.com",
+        password: "password",
+        ip: "12.34.56.78",
+    },
+};
