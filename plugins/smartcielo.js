@@ -46,6 +46,8 @@ async function toggle(id) {
     await page.waitForSelector(".room-temp-style");
     await page.$eval(".icon-fp-mode", el => el.click());
 
+    // TODO: For some reason, we can't be in FP mode for one head and heat for another.  I don't know why this is, but it's annoying.
+
     const devices = await mapDevices(page);
     onUpdate(devices);
 }

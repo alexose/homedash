@@ -24,7 +24,7 @@ async function auth(_onUpdate) {
 
     onUpdate(mapDevices(devices));
 
-    const socket = await connection.openWebSocket(async data => {
+    await connection.openWebSocket(async data => {
         // data is the message from eWeLink
         if (data.action === "update") {
             const device = devices.find(d => d.deviceid === data.deviceid);

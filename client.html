@@ -9,11 +9,30 @@
                 margin: 80px 0;
             }
             .main {
-                margin: 20px auto;
+                margin: 100px auto;
                 width: 900px;
             }
+            .reconnecting {
+                position: absolute;
+                font-size: 28px;
+                padding: 0 300px;
+                display: flex;
+                flex-direction: row-reverse;
+                justify-content: center;
+                align-items: center;
+                top: 60px;
+                color: #444;
+            }
+            .reconnecting.spinner:before {
+                top: auto;
+                left: auto;
+                margin-top: -4px;
+                margin-left: 10px;
+                position: relative;
+            }
             .disconnected {
-                background: #eee;
+                opacity: 0.2;
+                pointer-events: none;
             }
             .device-list {
                 display: flex;
@@ -70,12 +89,10 @@
                 animation: spinner 0.6s linear infinite;
             }
         </style>
+        <title>Command Center</title>
     </head>
     <body>
         <div class="main">
-            <header>
-                <h2>Command Center for Thompson Creek Yacht Club</h2>
-            </header>
             <div id="app"></div>
         </div>
         <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -134,37 +151,56 @@
 
             let sort = "";
 
-            var App = ({lights = [], other = [], thermostats = [], disconnected = false}) => {
+            var App = ({lights = [], other = [], thermostats = [], sensors = [], disconnected = false}) => {
                 return (
-                    <div className={disconnected ? "disconnected" : ""}>
-                        <h3>Lights</h3>
-                        <ul className="device-list lights">
-                            {lights.map(d => (
-                                <li onClick={() => handleClick(d)} key={d.id} className={getClasses(d)}>
-                                    {d.name}
-                                </li>
-                            ))}
-                        </ul>
-                        <h3>Devices</h3>
-                        <ul className="device-list devices">
-                            {other.map(d => (
-                                <li onClick={() => handleClick(d)} key={d.id} className={getClasses(d)}>
-                                    {d.name}
-                                </li>
-                            ))}
-                        </ul>
-                        <h3>Thermostats</h3>
-                        <ul className="device-list thermostats">
-                            {thermostats.map(d => (
-                                <li key={d.id} onClick={() => handleClick(d)} className={getClasses(d)}>
-                                    <div className="name">{d.name}</div>
-                                    {d.values.temperature ? <div className="stat">{d.values.temperature}°F</div> : null}
-                                    {d.values.humidity ? (
-                                        <div className="stat">{d.values.humidity}% humidity</div>
-                                    ) : null}
-                                </li>
-                            ))}
-                        </ul>
+                    <div>
+                        {disconnected ? <div className="reconnecting spinner">Reconnecting...</div> : null}
+                        <div className={disconnected ? "disconnected" : ""}>
+                            <h3>Lights</h3>
+                            <ul className="device-list lights">
+                                {lights.map(d => (
+                                    <li onClick={() => handleClick(d)} key={d.id} className={getClasses(d)}>
+                                        {d.name}
+                                    </li>
+                                ))}
+                            </ul>
+                            <h3>Devices</h3>
+                            <ul className="device-list devices">
+                                {other.map(d => (
+                                    <li onClick={() => handleClick(d)} key={d.id} className={getClasses(d)}>
+                                        {d.name}
+                                    </li>
+                                ))}
+                            </ul>
+                            <h3>Thermostats</h3>
+                            <ul className="device-list thermostats">
+                                {thermostats.map(d => (
+                                    <li key={d.id} onClick={() => handleClick(d)} className={getClasses(d)}>
+                                        <div className="name">{d.name}</div>
+                                        {d.values.temperature ? (
+                                            <div className="stat">{d.values.temperature}°F</div>
+                                        ) : null}
+                                        {d.values.humidity ? (
+                                            <div className="stat">{d.values.humidity}% humidity</div>
+                                        ) : null}
+                                    </li>
+                                ))}
+                            </ul>
+                            <h3>Sensors</h3>
+                            <ul className="device-list thermostats">
+                                {sensors.map(d => (
+                                    <li key={d.id} onClick={() => handleClick(d)} className={getClasses(d)}>
+                                        <div className="name">{d.name}</div>
+                                        {d.values.temperature ? (
+                                            <div className="stat">{d.values.temperature}°F</div>
+                                        ) : null}
+                                        {d.values.humidity ? (
+                                            <div className="stat">{d.values.humidity}% humidity</div>
+                                        ) : null}
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
                     </div>
                 );
             };
@@ -190,10 +226,22 @@
 
             function render(props) {
                 const disconnected = props.disconnected;
-                const thermostats = props.devices.filter(d => d.values.temperature || d.settings.temperature);
+
+                // These devices do not have anything plugged in to them right now
+                const names = ["Gym", "Cat Zone", "Shop AC"];
+                const therms = props.devices.filter(d => d.values.temperature || d.settings.temperature);
+
+                const thermostats = therms.filter(d => !names.includes(d.name));
+                const sensors = therms.filter(d => names.includes(d.name));
+
                 const lights = props.devices.filter(d => d.model === "KS-S");
-                const other = props.devices.filter(d => d.model !== "KS-S" && !d.settings.temperature);
-                ReactDOM.render(App({thermostats, lights, other, disconnected}), document.getElementById("app"));
+                const other = props.devices.filter(
+                    d => !["KS-S", "TS-5000"].includes(d.model) && !d.settings.temperature
+                );
+                ReactDOM.render(
+                    App({thermostats, sensors, lights, other, disconnected}),
+                    document.getElementById("app")
+                );
             }
         </script>
     </body>
